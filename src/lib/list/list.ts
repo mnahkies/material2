@@ -15,6 +15,8 @@ import {
   Directive,
   ElementRef,
   Optional,
+  Input,
+  ViewChild,
   QueryList,
   ViewEncapsulation,
 } from '@angular/core';
@@ -24,7 +26,9 @@ import {
   MatLine,
   MatLineSetter,
   mixinDisableRipple,
+  MatRipple,
 } from '@angular/material/core';
+import {coerceBooleanProperty} from '@angular/cdk/coercion';
 
 // Boilerplate for applying mixins to MatList.
 /** @docs-private */
@@ -107,6 +111,8 @@ export class MatListSubheaderCssMatStyler {}
     // @breaking-change 7.0.0 Remove `mat-list-item-avatar` in favor of `mat-list-item-with-avatar`.
     '[class.mat-list-item-avatar]': '_avatar || _icon',
     '[class.mat-list-item-with-avatar]': '_avatar || _icon',
+    '[class.mat-list-item-active]': 'active',
+    '(mousedown)': '_lastMouseDownEvent = $event',
   },
   inputs: ['disableRipple'],
   templateUrl: 'list-item.html',
@@ -116,10 +122,37 @@ export class MatListSubheaderCssMatStyler {}
 export class MatListItem extends _MatListItemMixinBase implements AfterContentInit,
     CanDisableRipple {
   private _isNavList: boolean = false;
+  private _isInitialized: boolean = false;
+
+  /** The most recent mouse down event in the list item for positioning ripple start point. */
+  _lastMouseDownEvent: MouseEvent|null = null;
 
   @ContentChildren(MatLine) _lines: QueryList<MatLine>;
   @ContentChild(MatListAvatarCssMatStyler) _avatar: MatListAvatarCssMatStyler;
   @ContentChild(MatListIconCssMatStyler) _icon: MatListIconCssMatStyler;
+  @ViewChild(MatRipple) ripple: MatRipple;
+
+  /** Whether this list item is active. */
+  @Input()
+  get active(): boolean {
+    return this._active;
+  }
+  set active(value: boolean) {
+    // If this item is becoming active, launch a persistent ripple, otherwise
+    // remove existing ripple.
+    if (value && !this._active && this._isInitialized) {
+      const rippleOrigin = this._lastMouseDownEvent || {clientX: 0, clientY: 0};
+      this.ripple.launch(
+          rippleOrigin.clientX, rippleOrigin.clientY, {persistent: true});
+      this.disableRipple = true;
+    } else {
+      this.ripple.fadeOutAll();
+      this.disableRipple = false;
+    }
+    this._active = coerceBooleanProperty(value);
+  }
+  private _active = false;
+
 
   constructor(private _element: ElementRef<HTMLElement>,
               @Optional() private _navList: MatNavList) {
@@ -139,6 +172,17 @@ export class MatListItem extends _MatListItemMixinBase implements AfterContentIn
     // TODO: consider turning the setter into a function, it doesn't do anything as a class.
     // tslint:disable-next-line:no-unused-expression
     new MatLineSetter(this._lines, this._element);
+
+    if (this.active) {
+      setTimeout(() => {
+        this.ripple.launch(0, 0, {
+          persistent: true,
+          animation: {enterDuration: 0},
+        });
+        this.disableRipple = true;
+      });
+    }
+    this._isInitialized = true;
   }
 
   /** Whether this list item should show a ripple effect when clicked. */
