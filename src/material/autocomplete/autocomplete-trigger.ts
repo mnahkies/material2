@@ -358,7 +358,7 @@ export class MatAutocompleteTrigger implements ControlValueAccessor, OnChanges, 
 
   // Implemented as part of ControlValueAccessor.
   writeValue(value: any): void {
-    Promise.resolve(null).then(() => this._setTriggerValue(value));
+    this._setTriggerValue(value);
   }
 
   // Implemented as part of ControlValueAccessor.
